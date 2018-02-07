@@ -3,13 +3,10 @@
     <% entries.forEach(function(entry){ %>
         <div class="panel panel-default">
             <div class="panel-heading">
-                <div class="text-muted pull-right">
-                    <%= entry.published %>
-                </div>
-                <%= entry.title %>
+                <%= entry.username %>
             </div>
             <div class="panel-body">
-                <%= entry.content %>
+                <%= entry.password %>
             </div>
         </div>
     <% }) %>

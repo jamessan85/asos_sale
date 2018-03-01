@@ -1,3 +1,4 @@
+require('dotenv').config()
 var express = require("express");
 var http = require("http");
 var path = require("path");
@@ -6,102 +7,128 @@ var bodyParser = require("body-parser");
 var mysql = require('mysql');
 var bcrypt = require('bcrypt');
 var session = require('express-session');
+var request_middleware = require('request');
+var convert = require('convert-units')
+var puppeteer = require('puppeteer');
+var email = require('mailer');
+
 
 var app = express ();
+
+var email_address = [];
+var url = [];
+
+
 //create sql connection
 var con = mysql.createPool({
-  host: "localhost",
-  user: "root",
-  password: "roy100",
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASS,
   database: "mydb"
 });
 
 app.set("views", path.resolve(__dirname, "views"));
-app.set("view engine", "ejs");
-
-var entries = [];
-app.locals.entries = entries;
+app.set("view engine", "pug");
 
 app.use(logger("dev"));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(session({secret: "kkldha8994893493jkjfkljsdklfjsdklf"}));
 
-app.get("/", function(request, response) {
-    response.render("index");
+getData();
+checkSale();
+
+app.get("/", function(req, res, next) {
+    
+    res.render("index");
 })
 
-app.get("/new-entry", function(request, response){
-    response.render("new-entry")
+app.post("/", function(req, res, next) {
+  data = req.body
+  var email = data.email
+  var sliced_url = StringSlice(data.url)
+  insertDetails(email, sliced_url)
+  res.redirect("/message");
 })
 
-app.post("/new-entry", function(request, response){
-    if (!request.body.username || !request.body.password) {
-        response.status(400).send("Entries must have a title and a body.");
-        return;
-    }
-        username = request.body.username,
-        password = bcrypt.hashSync(request.body.password, 10),
-        created = new Date()
-        insertDetails();
-        request.session.user = username;
-    response.redirect("/welcome");
+app.get("/message", function(req, res, next){
+  res.render("message");
 })
 
-app.get("/login", function(request, response){
-    response.render("login", {message: ""})
-})
+app.use(function(err, req, res, next) {
+ res.status(500);
+ res.send("Internal server error.");
+});
 
-app.post("/login", function(request, response){
-        username = request.body.username,
-        password = request.body.password,
-
-        sql = "SELECT * FROM users WHERE username = " + "'" + username + "'";
-        con.query(sql, function (err, result) {
-        if (err) throw err;
-        var hash = result[0].password;
-        var user = result[0].username;
-          if (bcrypt.compareSync(password, hash) == true) {
-            request.session.user = user
-            response.redirect("/welcome");
-          } else {
-            response.render('login', {message: "Wrong Password"})
-          }
-        });
-})
-
-app.get("/welcome", function(request, response){
-    if (request.session.user) {
-      response.render("welcome", {name: request.session.user})
-    }
-    else {
-      response.redirect('/login')
-    }
-})
-
-app.get("/logout", function(request, response){
-    request.session.destroy(function(request, result){
-      console.log("user logged out.")
-    })
-    response.redirect('/login');
-})
-
-app.use(function(request, response){
-    response.status(404).render("404");
-})
+app.use(function(err, req, res, next) {
+  res.status(404);
+  res.send("Page not found, dingbat.");
+ });
 
 http.createServer(app).listen(3000, function(){
-    console.log("Guestbook app started on port 3000.");
+    console.log("Sale app started on port 3000.");
 });
 
 
-
-function insertDetails() {
-    var sql = "INSERT INTO users (username, password, create_date) VALUES ?";
+function insertDetails(x, y) {
+    var sql = "INSERT INTO sale_data (email, url) VALUES ?";
     var values = [
-      [username, password, created]
+      [x, y]
     ]
 		con.query(sql, [values], function (err, result) {
-    var id = result.insertId;
 		if (err) throw err;
 		});
 };
+
+function getData() {
+    con.query("SELECT * FROM sale_data", function (err, result, fields) {
+      if (err) throw err;
+      for (i = 0; i < result.length; i++) {
+        email_address.push(result[i].email);
+        url.push(result[i].url);
+      }
+    });
+}
+
+function checkSale(){
+  try {
+    (async () => {
+      const browser = await puppeteer.launch({headless: true})
+      const page = await browser.newPage()
+      for (var i = 0; i < url.length; i++) {
+        try {
+          await page.goto(url[i])
+          price = await page.evaluate(() => document.querySelector('#product-price > div.grid-row.rendered > span.current-price.product-price-discounted').innerText)
+          product = await page.evaluate(() => document.querySelector('#aside-content > div.product-hero > h1').innerText);
+          sendEmail(email_address[i], product, price, url[i])
+        } catch (err) {
+        }
+      }
+      browser.close()
+    })()
+    } catch (err) {
+    } 
+}
+
+function sendEmail(a, x, y, z) {
+  email.send({
+      host : 'smtp.123-reg.co.uk',              // smtp server hostname
+      port : "25",                     // smtp server port
+    ssl: false,						// for SSL support - REQUIRES NODE v0.3.x OR HIGHER
+      domain : "localhost",            // domain used by client to identify itself to server
+      to : a,
+      from : "sale.alert@sandmandesign.co.uk",
+      subject : "ASOS Sale Alert, your item " + x,
+      body: "Hello, the item you wished to be alerted about is now on sale for " + y + ", Click here to view it " + z,
+      authentication : "login",        // auth login is supported; anything else is no auth
+      username : process.env.SMTP_USER,        // username
+      password : process.env.SMTP_PASS         // password
+    },
+    function(err, result){
+  });
+}
+
+function StringSlice(x) {
+  url_find = x.search('\\?')
+  url_slice = x.slice('0', url_find )
+  return url_slice
+}

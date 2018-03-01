@@ -94,7 +94,7 @@ function getData() {
 function checkSale(){
   try {
     (async () => {
-      const browser = await puppeteer.launch({headless: true})
+      const browser = await puppeteer.launch({args: ['--no-sandbox', '--disable-setuid-sandbox']});
       const page = await browser.newPage()
       for (var i = 0; i < url.length; i++) {
         try {

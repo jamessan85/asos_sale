@@ -63,7 +63,7 @@ app.use(function(err, req, res, next) {
 
 app.use(function(err, req, res, next) {
   res.status(404);
-  res.send("Page not found, dingbat.");
+  res.send("Page not found, dingbat....");
  });
 
 app.listen(app.get('port'), function() {

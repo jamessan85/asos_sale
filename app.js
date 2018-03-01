@@ -15,6 +15,8 @@ var email = require('mailer');
 
 var app = express ();
 
+app.set('port', (process.env.PORT || 5000));
+
 var email_address = [];
 var url = [];
 
@@ -64,8 +66,8 @@ app.use(function(err, req, res, next) {
   res.send("Page not found, dingbat.");
  });
 
-http.createServer(app).listen(3000, function(){
-    console.log("Sale app started on port 3000.");
+app.listen(app.get('port'), function() {
+  console.log('Node app is running on port', app.get('port'));
 });
 
 

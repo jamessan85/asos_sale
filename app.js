@@ -26,7 +26,7 @@ var con = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASS,
-  database: "mydb"
+  database: process.env.DB
 });
 
 app.set("views", path.resolve(__dirname, "views"));

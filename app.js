@@ -19,9 +19,9 @@ app.set('port', (process.env.PORT || 5000));
 
 var email_address = [];
 var url = [];
+var idsales_data = [];
 
-
-//create sql connection
+// create sql connection
 var con = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -40,7 +40,6 @@ getData();
 checkSale();
 
 app.get("/", function(req, res, next) {
-    
     res.render("index");
 })
 
@@ -54,6 +53,22 @@ app.post("/", function(req, res, next) {
 
 app.get("/message", function(req, res, next){
   res.render("message");
+})
+
+app.get("/unsubscribe/:email&:url&:id", function(req, res, next) {
+  url = req.params
+  console.log(url)
+  res.render('unsubscribe')
+})
+
+app.post("/unsubscribe/:email&:url&:id", function(req, res, next) {
+  url = req.params
+  unsubscribe(url.id)
+  res.redirect('/success')
+})
+
+app.get("/success", function(req, res, next){
+  res.render("success");
 })
 
 app.use(function(err, req, res, next) {
@@ -72,9 +87,9 @@ app.listen(app.get('port'), function() {
 
 
 function insertDetails(x, y) {
-    var sql = "INSERT INTO sale_data (email, url) VALUES ?";
+    var sql = "INSERT INTO sale_data (email, url, email_flag) VALUES ?";
     var values = [
-      [x, y]
+      [x, y, 1]
     ]
 		con.query(sql, [values], function (err, result) {
 		if (err) throw err;
@@ -91,7 +106,7 @@ function getData() {
     });
 }
 
-function checkSale(){
+function checkSale(){ // Checks if item is on Sale
   try {
     (async () => {
       const browser = await puppeteer.launch({args: ['--no-sandbox', '--disable-setuid-sandbox']});
@@ -101,7 +116,7 @@ function checkSale(){
           await page.goto(url[i])
           price = await page.evaluate(() => document.querySelector('#product-price > div.grid-row.rendered > span.current-price.product-price-discounted').innerText)
           product = await page.evaluate(() => document.querySelector('#aside-content > div.product-hero > h1').innerText);
-          sendEmail(email_address[i], product, price, url[i])
+          sendEmail(email_address[i], product, price, url[i], idsales_data[i])
         } catch (err) {
         }
       }
@@ -111,16 +126,16 @@ function checkSale(){
     } 
 }
 
-function sendEmail(a, x, y, z) {
+function sendEmail(email, product, price, url, id) { // Sends the email
   email.send({
       host : 'smtp.123-reg.co.uk',              // smtp server hostname
       port : "25",                     // smtp server port
     ssl: false,						// for SSL support - REQUIRES NODE v0.3.x OR HIGHER
       domain : "localhost",            // domain used by client to identify itself to server
-      to : a,
+      to : email,
       from : "sale.alert@sandmandesign.co.uk",
-      subject : "ASOS Sale Alert, your item " + x,
-      body: "Hello, the item you wished to be alerted about is now on sale for " + y + ", Click here to view it " + z,
+      subject : "ASOS Sale Alert, your item " + product,
+      body: "Hello, the item you wished to be alerted about is now on sale for " + price + ", Click here to view it " + url + " If you wish to stop recieving these emails please click on this link www.localhost:3002/unsubscribe/" + email + "&" + url + "&" + id,
       authentication : "login",        // auth login is supported; anything else is no auth
       username : process.env.SMTP_USER,        // username
       password : process.env.SMTP_PASS         // password
@@ -129,8 +144,18 @@ function sendEmail(a, x, y, z) {
   });
 }
 
-function StringSlice(x) {
+function StringSlice(x) { // Remove anything after the question mark in the url string
   url_find = x.search('\\?')
   url_slice = x.slice('0', url_find )
   return url_slice
+}
+
+function unsubscribe(id) {
+  var sql = "UPDATE sale_data (email_flag) VALUES ? WHERE (idsales_data) = " + id ;
+  var values = [
+    [1]
+  ]
+		con.query(sql, [values], function (err, result) {
+		if (err) throw err;
+		});
 }
